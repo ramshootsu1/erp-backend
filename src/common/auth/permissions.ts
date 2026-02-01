@@ -1,0 +1,10 @@
+export enum Permission {
+  // User management
+  USER_VIEW = 'USER_VIEW',
+  USER_CREATE = 'USER_CREATE',
+
+  // Tenant
+  TENANT_CREATE = 'TENANT_CREATE',
+  TENANT_VIEW = 'TENANT_VIEW',
+  TENANT_STATUS_CHANGE = 'TENANT_STATUS_CHANGE',
+}
