@@ -63,3 +63,26 @@ model AuditLog {
   @@index([action])
   @@index([entity])
 }
+
+model Customer {
+  id        String   @id @default(cuid())
+
+  // Tenant ownership
+  tenantId  String
+
+  // Business identity
+  name      String
+  code      String?  // optional human-friendly identifier
+  email     String?
+  phone     String?
+  notes     String?
+
+  // Lifecycle
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([tenantId])
+  @@index([tenantId, deletedAt])
+  @@unique([tenantId, code])
+}

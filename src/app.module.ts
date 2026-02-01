@@ -7,12 +7,14 @@ import { PermissionsGuard } from './common/guards/permissions.guard';
 import { UserModule } from './user/user.module';
 import { TenantModule } from './tenant/tenant.module';
 import { AuditService } from './common/audit/audit.service';
+import { CustomersModule } from './customers/customers.module';
 
 @Module({
   imports: [
     PrismaModule,
     UserModule,
     TenantModule,
+    CustomersModule,
   ],
   providers: [
     {
