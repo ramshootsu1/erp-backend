@@ -86,3 +86,30 @@ model Customer {
   @@index([tenantId, deletedAt])
   @@unique([tenantId, code])
 }
+
+model CustomerAddress {
+  id            String   @id @default(cuid())
+
+  tenantId      String
+  customerId    String
+
+  label         String?  // "Head Office", "Warehouse", etc.
+  line1         String
+  line2         String?
+  city          String
+  state         String?
+  postalCode    String
+  country       String
+
+  isBilling     Boolean  @default(false)
+  isShipping    Boolean  @default(false)
+  isDefault     Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([tenantId, customerId, deletedAt])
+}

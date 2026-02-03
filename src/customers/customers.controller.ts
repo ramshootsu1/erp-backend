@@ -13,9 +13,9 @@ import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Ctx } from '../common/decorators/context.decorator';
 import * as requestContext from '../common/types/request-context';
 import { Roles, Role } from '../common/decorators/roles.decorator';
-
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Permission } from '../common/auth/permissions';
+import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
 
 
 @Controller('customers')
@@ -74,4 +74,43 @@ export class CustomersController {
   ) {
     return this.customersService.restoreCustomer(ctx, id);
   }
+
+  @Post(':id/addresses')
+@Permissions(Permission.CUSTOMER_UPDATE)
+addAddress(
+  @Ctx() ctx: requestContext.RequestContext,
+  @Param('id') customerId: string,
+  @Body() dto: CreateCustomerAddressDto,
+) {
+  return this.customersService.addCustomerAddress(
+    ctx,
+    customerId,
+    dto,
+  );
+}
+
+@Get(':id/addresses')
+@Permissions(Permission.CUSTOMER_VIEW)
+listAddresses(
+  @Ctx() ctx: requestContext.RequestContext,
+  @Param('id') customerId: string,
+) {
+  return this.customersService.listCustomerAddresses(
+    ctx,
+    customerId,
+  );
+}
+
+@Delete('addresses/:addressId')
+@Permissions(Permission.CUSTOMER_UPDATE)
+deleteAddress(
+  @Ctx() ctx: requestContext.RequestContext,
+  @Param('addressId') addressId: string,
+) {
+  return this.customersService.deleteCustomerAddress(
+    ctx,
+    addressId,
+  );
+}
+
 }

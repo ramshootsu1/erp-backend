@@ -1,11 +1,14 @@
 import {
   Injectable,
   NotFoundException,
+  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { TenantService } from '../common/base/tenant.service';
 import { RequestContext } from '../common/types/request-context';
+import { Prisma } from '@prisma/client';
+import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
 
 @Injectable()
 export class CustomersService extends TenantService {
@@ -29,28 +32,41 @@ export class CustomersService extends TenantService {
     const tenantId = this.getTenantId(ctx);
     const userId = this.getUserId(ctx);
 
-    const customer = await this.prisma.customer.create({
-      data: {
+    try {
+      const customer = await this.prisma.customer.create({
+        data: {
+          tenantId,
+          ...data,
+        },
+      });
+
+      await this.auditService.log({
         tenantId,
-        ...data,
-      },
-    });
+        userId,
+        action: 'CUSTOMER_CREATE',
+        entity: 'Customer',
+        entityId: customer.id,
+        metadata: { name: customer.name },
+      });
 
-    await this.auditService.log({
-      tenantId,
-      userId,
-      action: 'CUSTOMER_CREATE',
-      entity: 'Customer',
-      entityId: customer.id,
-      metadata: {
-        name: customer.name,
-      },
-    });
-
-    return customer;
+      return customer;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Customer code already exists for this tenant',
+        );
+      }
+      throw error;
+    }
   }
 
-  async listCustomers(ctx: RequestContext) {
+  async listCustomers(
+    ctx: RequestContext,
+    options?: { skip?: number; take?: number },
+  ) {
     const tenantId = this.getTenantId(ctx);
 
     return this.prisma.customer.findMany({
@@ -61,6 +77,8 @@ export class CustomersService extends TenantService {
       orderBy: {
         createdAt: 'desc',
       },
+      skip: options?.skip ?? 0,
+      take: options?.take ?? 50,
     });
   }
 
@@ -108,20 +126,32 @@ export class CustomersService extends TenantService {
       throw new NotFoundException('Customer not found');
     }
 
-    const updated = await this.prisma.customer.update({
-      where: { id: customerId },
-      data,
-    });
+    try {
+      const updated = await this.prisma.customer.update({
+        where: { id: customerId },
+        data,
+      });
 
-    await this.auditService.log({
-      tenantId,
-      userId,
-      action: 'CUSTOMER_UPDATE',
-      entity: 'Customer',
-      entityId: customerId,
-    });
+      await this.auditService.log({
+        tenantId,
+        userId,
+        action: 'CUSTOMER_UPDATE',
+        entity: 'Customer',
+        entityId: customerId,
+      });
 
-    return updated;
+      return updated;
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        throw new ConflictException(
+          'Customer code already exists for this tenant',
+        );
+      }
+      throw error;
+    }
   }
 
   async deleteCustomer(ctx: RequestContext, customerId: string) {
@@ -172,6 +202,7 @@ export class CustomersService extends TenantService {
       throw new NotFoundException('Customer not found or not deleted');
     }
 
+    // ✅ Safe restore: codes are non-reusable by design
     await this.prisma.customer.update({
       where: { id: customerId },
       data: {
@@ -187,4 +218,111 @@ export class CustomersService extends TenantService {
       entityId: customerId,
     });
   }
+
+  async addCustomerAddress(
+  ctx: RequestContext,
+  customerId: string,
+  data: CreateCustomerAddressDto,
+) {
+  const tenantId = this.getTenantId(ctx);
+  const userId = this.getUserId(ctx);
+
+  const customer = await this.prisma.customer.findFirst({
+    where: {
+      id: customerId,
+      tenantId,
+      deletedAt: null,
+    },
+  });
+
+  if (!customer) {
+    throw new NotFoundException('Customer not found');
+  }
+
+  // Enforce single default per customer
+  if (data.isDefault) {
+    await this.prisma.customerAddress.updateMany({
+      where: {
+        tenantId,
+        customerId,
+        deletedAt: null,
+      },
+      data: {
+        isDefault: false,
+      },
+    });
+  }
+
+  const address = await this.prisma.customerAddress.create({
+    data: {
+      tenantId,
+      customerId,
+      ...data,
+    },
+  });
+
+  await this.auditService.log({
+    tenantId,
+    userId,
+    action: 'CUSTOMER_ADDRESS_CREATE',
+    entity: 'CustomerAddress',
+    entityId: address.id,
+  });
+
+  return address;
+}
+
+async listCustomerAddresses(
+  ctx: RequestContext,
+  customerId: string,
+) {
+  const tenantId = this.getTenantId(ctx);
+
+  return this.prisma.customerAddress.findMany({
+    where: {
+      tenantId,
+      customerId,
+      deletedAt: null,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+async deleteCustomerAddress(
+  ctx: RequestContext,
+  addressId: string,
+) {
+  const tenantId = this.getTenantId(ctx);
+  const userId = this.getUserId(ctx);
+
+  const address = await this.prisma.customerAddress.findFirst({
+    where: {
+      id: addressId,
+      tenantId,
+      deletedAt: null,
+    },
+  });
+
+  if (!address) {
+    throw new NotFoundException('Address not found');
+  }
+
+  await this.prisma.customerAddress.update({
+    where: { id: addressId },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+
+  await this.auditService.log({
+    tenantId,
+    userId,
+    action: 'CUSTOMER_ADDRESS_DELETE',
+    entity: 'CustomerAddress',
+    entityId: addressId,
+  });
+}
+
 }
