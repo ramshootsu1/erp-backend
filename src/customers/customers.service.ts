@@ -9,6 +9,7 @@ import { TenantService } from '../common/base/tenant.service';
 import { RequestContext } from '../common/types/request-context';
 import { Prisma } from '@prisma/client';
 import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
+import { CreateCustomerContactDto } from './dto/create-customer-contact.dto';
 
 @Injectable()
 export class CustomersService extends TenantService {
@@ -218,111 +219,218 @@ export class CustomersService extends TenantService {
       entityId: customerId,
     });
   }
-
+//--------------customer addresses---------
   async addCustomerAddress(
-  ctx: RequestContext,
-  customerId: string,
-  data: CreateCustomerAddressDto,
-) {
-  const tenantId = this.getTenantId(ctx);
-  const userId = this.getUserId(ctx);
+    ctx: RequestContext,
+    customerId: string,
+    data: CreateCustomerAddressDto,
+  ) {
+    const tenantId = this.getTenantId(ctx);
+    const userId = this.getUserId(ctx);
 
-  const customer = await this.prisma.customer.findFirst({
-    where: {
-      id: customerId,
+    const customer = await this.prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        tenantId,
+        deletedAt: null,
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    // Enforce single default per customer
+    if (data.isDefault) {
+      await this.prisma.customerAddress.updateMany({
+        where: {
+          tenantId,
+          customerId,
+          deletedAt: null,
+        },
+        data: {
+          isDefault: false,
+        },
+      });
+    }
+
+    const address = await this.prisma.customerAddress.create({
+      data: {
+        tenantId,
+        customerId,
+        ...data,
+      },
+    });
+
+    await this.auditService.log({
       tenantId,
-      deletedAt: null,
-    },
-  });
+      userId,
+      action: 'CUSTOMER_ADDRESS_CREATE',
+      entity: 'CustomerAddress',
+      entityId: address.id,
+    });
 
-  if (!customer) {
-    throw new NotFoundException('Customer not found');
+    return address;
   }
 
-  // Enforce single default per customer
-  if (data.isDefault) {
-    await this.prisma.customerAddress.updateMany({
+  async listCustomerAddresses(
+    ctx: RequestContext,
+    customerId: string,
+  ) {
+    const tenantId = this.getTenantId(ctx);
+
+    return this.prisma.customerAddress.findMany({
       where: {
         tenantId,
         customerId,
         deletedAt: null,
       },
-      data: {
-        isDefault: false,
+      orderBy: {
+        createdAt: 'desc',
       },
     });
   }
 
-  const address = await this.prisma.customerAddress.create({
-    data: {
+  async deleteCustomerAddress(
+    ctx: RequestContext,
+    addressId: string,
+  ) {
+    const tenantId = this.getTenantId(ctx);
+    const userId = this.getUserId(ctx);
+
+    const address = await this.prisma.customerAddress.findFirst({
+      where: {
+        id: addressId,
+        tenantId,
+        deletedAt: null,
+      },
+    });
+
+    if (!address) {
+      throw new NotFoundException('Address not found');
+    }
+
+    await this.prisma.customerAddress.update({
+      where: { id: addressId },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    await this.auditService.log({
       tenantId,
-      customerId,
-      ...data,
-    },
-  });
-
-  await this.auditService.log({
-    tenantId,
-    userId,
-    action: 'CUSTOMER_ADDRESS_CREATE',
-    entity: 'CustomerAddress',
-    entityId: address.id,
-  });
-
-  return address;
-}
-
-async listCustomerAddresses(
-  ctx: RequestContext,
-  customerId: string,
-) {
-  const tenantId = this.getTenantId(ctx);
-
-  return this.prisma.customerAddress.findMany({
-    where: {
-      tenantId,
-      customerId,
-      deletedAt: null,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-  });
-}
-
-async deleteCustomerAddress(
-  ctx: RequestContext,
-  addressId: string,
-) {
-  const tenantId = this.getTenantId(ctx);
-  const userId = this.getUserId(ctx);
-
-  const address = await this.prisma.customerAddress.findFirst({
-    where: {
-      id: addressId,
-      tenantId,
-      deletedAt: null,
-    },
-  });
-
-  if (!address) {
-    throw new NotFoundException('Address not found');
+      userId,
+      action: 'CUSTOMER_ADDRESS_DELETE',
+      entity: 'CustomerAddress',
+      entityId: addressId,
+    });
   }
 
-  await this.prisma.customerAddress.update({
-    where: { id: addressId },
-    data: {
-      deletedAt: new Date(),
-    },
-  });
+//customer contacts methods ------------
+  async addCustomerContact(
+    ctx: RequestContext,
+    customerId: string,
+    data: CreateCustomerContactDto,
+  ) {
+    const tenantId = this.getTenantId(ctx);
+    const userId = this.getUserId(ctx);
 
-  await this.auditService.log({
-    tenantId,
-    userId,
-    action: 'CUSTOMER_ADDRESS_DELETE',
-    entity: 'CustomerAddress',
-    entityId: addressId,
-  });
-}
+    // Ensure customer exists & active
+    const customer = await this.prisma.customer.findFirst({
+      where: {
+        id: customerId,
+        tenantId,
+        deletedAt: null,
+      },
+    });
+
+    if (!customer) {
+      throw new NotFoundException('Customer not found');
+    }
+
+    // Enforce single primary contact
+    if (data.isPrimary) {
+      await this.prisma.customerContact.updateMany({
+        where: {
+          tenantId,
+          customerId,
+          deletedAt: null,
+        },
+        data: { isPrimary: false },
+      });
+    }
+
+    const contact = await this.prisma.customerContact.create({
+      data: {
+        tenantId,
+        customerId,
+        ...data,
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CUSTOMER_CONTACT_CREATE',
+      entity: 'CustomerContact',
+      entityId: contact.id,
+    });
+
+    return contact;
+  }
+
+  async listCustomerContacts(
+    ctx: RequestContext,
+    customerId: string,
+  ) {
+    const tenantId = this.getTenantId(ctx);
+
+    return this.prisma.customerContact.findMany({
+      where: {
+        tenantId,
+        customerId,
+        deletedAt: null,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async deleteCustomerContact(
+    ctx: RequestContext,
+    contactId: string,
+  ) {
+    const tenantId = this.getTenantId(ctx);
+    const userId = this.getUserId(ctx);
+
+    const contact = await this.prisma.customerContact.findFirst({
+      where: {
+        id: contactId,
+        tenantId,
+        deletedAt: null,
+      },
+    });
+
+    if (!contact) {
+      throw new NotFoundException('Contact not found');
+    }
+
+    await this.prisma.customerContact.update({
+      where: { id: contactId },
+      data: {
+        deletedAt: new Date(),
+      },
+    });
+
+    await this.auditService.log({
+      tenantId,
+      userId,
+      action: 'CUSTOMER_CONTACT_DELETE',
+      entity: 'CustomerContact',
+      entityId: contactId,
+    });
+  }
+
 
 }

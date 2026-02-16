@@ -16,6 +16,7 @@ import { Roles, Role } from '../common/decorators/roles.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Permission } from '../common/auth/permissions';
 import { CreateCustomerAddressDto } from './dto/create-customer-address.dto';
+import { CreateCustomerContactDto } from './dto/create-customer-contact.dto';
 
 
 @Controller('customers')
@@ -76,41 +77,71 @@ export class CustomersController {
   }
 
   @Post(':id/addresses')
-@Permissions(Permission.CUSTOMER_UPDATE)
-addAddress(
-  @Ctx() ctx: requestContext.RequestContext,
-  @Param('id') customerId: string,
-  @Body() dto: CreateCustomerAddressDto,
-) {
-  return this.customersService.addCustomerAddress(
-    ctx,
-    customerId,
-    dto,
-  );
-}
+  @Permissions(Permission.CUSTOMER_UPDATE)
+  addAddress(
+    @Ctx() ctx: requestContext.RequestContext,
+    @Param('id') customerId: string,
+    @Body() dto: CreateCustomerAddressDto,
+  ) {
+    return this.customersService.addCustomerAddress(
+      ctx,
+      customerId,
+      dto,
+    );
+  }
 
-@Get(':id/addresses')
-@Permissions(Permission.CUSTOMER_VIEW)
-listAddresses(
-  @Ctx() ctx: requestContext.RequestContext,
-  @Param('id') customerId: string,
-) {
-  return this.customersService.listCustomerAddresses(
-    ctx,
-    customerId,
-  );
-}
+  @Get(':id/addresses')
+  @Permissions(Permission.CUSTOMER_VIEW)
+  listAddresses(
+    @Ctx() ctx: requestContext.RequestContext,
+    @Param('id') customerId: string,
+  ) {
+    return this.customersService.listCustomerAddresses(
+      ctx,
+      customerId,
+    );
+  }
 
-@Delete('addresses/:addressId')
-@Permissions(Permission.CUSTOMER_UPDATE)
-deleteAddress(
-  @Ctx() ctx: requestContext.RequestContext,
-  @Param('addressId') addressId: string,
-) {
-  return this.customersService.deleteCustomerAddress(
-    ctx,
-    addressId,
-  );
-}
+  @Delete('addresses/:addressId')
+  @Permissions(Permission.CUSTOMER_UPDATE)
+  deleteAddress(
+    @Ctx() ctx: requestContext.RequestContext,
+    @Param('addressId') addressId: string,
+  ) {
+    return this.customersService.deleteCustomerAddress(
+      ctx,
+      addressId,
+    );
+  }
+
+  //additional endpoints for customer contact management
+  @Post(':id/contacts')
+  @Permissions(Permission.CUSTOMER_UPDATE)
+  addContact(
+    @Ctx() ctx: requestContext.RequestContext,
+    @Param('id') customerId: string,
+    @Body() dto: CreateCustomerContactDto,
+  ) {
+    return this.customersService.addCustomerContact(
+      ctx,
+      customerId,
+      dto,
+    );
+  }
+
+  @Delete('contacts/:contactId')
+  @Permissions(Permission.CUSTOMER_UPDATE)
+  deleteContact(
+    @Ctx() ctx: requestContext.RequestContext,
+    @Param('contactId') contactId: string,
+  ) {
+    return this.customersService.deleteCustomerContact(
+      ctx,
+      contactId,
+    );
+  }
+
+  
+
 
 }

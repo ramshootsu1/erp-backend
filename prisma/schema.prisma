@@ -113,3 +113,25 @@ model CustomerAddress {
   @@index([customerId])
   @@index([tenantId, customerId, deletedAt])
 }
+
+model CustomerContact {
+  id          String   @id @default(cuid())
+
+  tenantId    String
+  customerId  String
+
+  name        String
+  email       String?
+  phone       String?
+  designation String?
+
+  isPrimary   Boolean  @default(false)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  @@index([tenantId])
+  @@index([customerId])
+  @@index([tenantId, customerId, deletedAt])
+}
