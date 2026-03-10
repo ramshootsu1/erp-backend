@@ -18,6 +18,12 @@ enum TenantStatus {
   CLOSED
 }
 
+enum Role {
+  OWNER
+  ADMIN
+  STAFF
+}
+
 /////////////////////////////////////////////////
 // MODELS
 /////////////////////////////////////////////////
@@ -34,16 +40,21 @@ model Tenant {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  tenantId  String
-  email     String
-  name      String
-  role      String
-  isActive  Boolean   @default(true)
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
+  id           String   @id @default(uuid())
 
-  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  tenantId     String
+
+  email        String
+  passwordHash String
+
+  role         Role
+
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -109,6 +120,8 @@ model CustomerAddress {
   updatedAt     DateTime @updatedAt
   deletedAt     DateTime?
 
+  deletedByCascade Boolean @default(false)
+
   @@index([tenantId])
   @@index([customerId])
   @@index([tenantId, customerId, deletedAt])
@@ -130,6 +143,8 @@ model CustomerContact {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   deletedAt   DateTime?
+
+  deletedByCascade Boolean @default(false)
 
   @@index([tenantId])
   @@index([customerId])

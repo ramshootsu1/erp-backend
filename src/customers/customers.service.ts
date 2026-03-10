@@ -155,70 +155,127 @@ export class CustomersService extends TenantService {
     }
   }
 
-  async deleteCustomer(ctx: RequestContext, customerId: string) {
-    const tenantId = this.getTenantId(ctx);
-    const userId = this.getUserId(ctx);
+ async deleteCustomer(ctx: RequestContext, customerId: string) {
+  const tenantId = this.getTenantId(ctx);
+  const userId = this.getUserId(ctx);
 
-    const existing = await this.prisma.customer.findFirst({
-      where: {
-        id: customerId,
-        tenantId,
-        deletedAt: null,
-      },
-    });
-
-    if (!existing) {
-      throw new NotFoundException('Customer not found or already deleted');
-    }
-
-    await this.prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        deletedAt: new Date(),
-      },
-    });
-
-    await this.auditService.log({
+  const existing = await this.prisma.customer.findFirst({
+    where: {
+      id: customerId,
       tenantId,
-      userId,
-      action: 'CUSTOMER_DELETE',
-      entity: 'Customer',
-      entityId: customerId,
-    });
+      deletedAt: null,
+    },
+  });
+
+  if (!existing) {
+    throw new NotFoundException('Customer not found or already deleted');
   }
+
+  const now = new Date();
+
+  // Cascade soft delete addresses
+  await this.prisma.customerAddress.updateMany({
+    where: {
+      tenantId,
+      customerId,
+      deletedAt: null,
+    },
+    data: {
+      deletedAt: now,
+      deletedByCascade: true,
+    },
+  });
+
+  // Cascade soft delete contacts
+  await this.prisma.customerContact.updateMany({
+    where: {
+      tenantId,
+      customerId,
+      deletedAt: null,
+    },
+    data: {
+      deletedAt: now,
+      deletedByCascade: true,
+    },
+  });
+
+  // Soft delete customer
+  await this.prisma.customer.update({
+    where: { id: customerId },
+    data: {
+      deletedAt: now,
+    },
+  });
+
+  await this.auditService.log({
+    tenantId,
+    userId,
+    action: 'CUSTOMER_DELETE',
+    entity: 'Customer',
+    entityId: customerId,
+  });
+}
+
 
   async restoreCustomer(ctx: RequestContext, customerId: string) {
-    const tenantId = this.getTenantId(ctx);
-    const userId = this.getUserId(ctx);
+  const tenantId = this.getTenantId(ctx);
+  const userId = this.getUserId(ctx);
 
-    const existing = await this.prisma.customer.findFirst({
-      where: {
-        id: customerId,
-        tenantId,
-        deletedAt: { not: null },
-      },
-    });
-
-    if (!existing) {
-      throw new NotFoundException('Customer not found or not deleted');
-    }
-
-    // ✅ Safe restore: codes are non-reusable by design
-    await this.prisma.customer.update({
-      where: { id: customerId },
-      data: {
-        deletedAt: null,
-      },
-    });
-
-    await this.auditService.log({
+  const existing = await this.prisma.customer.findFirst({
+    where: {
+      id: customerId,
       tenantId,
-      userId,
-      action: 'CUSTOMER_RESTORE',
-      entity: 'Customer',
-      entityId: customerId,
-    });
+      deletedAt: { not: null },
+    },
+  });
+
+  if (!existing) {
+    throw new NotFoundException('Customer not found or not deleted');
   }
+
+  // Restore customer
+  await this.prisma.customer.update({
+    where: { id: customerId },
+    data: {
+      deletedAt: null,
+    },
+  });
+
+  // Restore only cascade-deleted addresses
+  await this.prisma.customerAddress.updateMany({
+    where: {
+      tenantId,
+      customerId,
+      deletedByCascade: true,
+    },
+    data: {
+      deletedAt: null,
+      deletedByCascade: false,
+    },
+  });
+
+  // Restore only cascade-deleted contacts
+  await this.prisma.customerContact.updateMany({
+    where: {
+      tenantId,
+      customerId,
+      deletedByCascade: true,
+    },
+    data: {
+      deletedAt: null,
+      deletedByCascade: false,
+    },
+  });
+
+  await this.auditService.log({
+    tenantId,
+    userId,
+    action: 'CUSTOMER_RESTORE',
+    entity: 'Customer',
+    entityId: customerId,
+  });
+}
+
 //--------------customer addresses---------
   async addCustomerAddress(
     ctx: RequestContext,

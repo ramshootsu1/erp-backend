@@ -141,7 +141,17 @@ export class CustomersController {
     );
   }
 
-  
+  @Get(':id/contacts')
+  @Permissions(Permission.CUSTOMER_VIEW)
+  listContacts(
+    @Ctx() ctx: requestContext.RequestContext,
+    @Param('id') customerId: string,
+  ) {
+    return this.customersService.listCustomerContacts(
+      ctx,
+      customerId,
+    );
+  }
 
 
 }
