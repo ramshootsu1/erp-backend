@@ -34,30 +34,50 @@ model Tenant {
   status    TenantStatus @default(TRIAL)
   createdAt DateTime     @default(now())
 
-  users     User[]
+  memberships TenantMembership[]
 
   @@index([status])
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  tenantId     String
-
-  email        String
+  email String @unique
   passwordHash String
 
-  role         Role
+  name String
+  phoneNumber String?
 
-  isActive     Boolean  @default(true)
+  lastLoginAt DateTime?
+  loginCount  Int @default(0)
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  memberships TenantMembership[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TenantMembership {
+  id String @id @default(uuid())
+
+  tenantId String
+  userId   String
+
+  role Role
+
+  isActive Boolean @default(true)
+  deletedAt DateTime?
+
+  lastLoginAt DateTime?
+  loginCount  Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
 
-  @@unique([tenantId, email])
-  @@index([tenantId])
+  @@unique([tenantId, userId])
 }
 
 model AuditLog {

@@ -8,6 +8,7 @@ import { UserModule } from './user/user.module';
 import { TenantModule } from './tenant/tenant.module';
 import { AuditService } from './common/audit/audit.service';
 import { CustomersModule } from './customers/customers.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { CustomersModule } from './customers/customers.module';
     UserModule,
     TenantModule,
     CustomersModule,
+    AuthModule,
   ],
   providers: [
     {

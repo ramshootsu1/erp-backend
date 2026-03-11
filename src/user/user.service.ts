@@ -2,12 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TenantService as BaseTenantService } from '../common/base/tenant.service';
 import { AuditService } from '../common/audit/audit.service';
+import { Role } from '@prisma/client';
+import { PasswordService } from '../auth/password.service';
 
 @Injectable()
 export class UserService extends BaseTenantService {
   constructor(
-    private readonly prisma: PrismaService,
+     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly passwordService: PasswordService,
   ) {
     super();
   }
@@ -16,39 +19,41 @@ export class UserService extends BaseTenantService {
    * Create a new user inside the current tenant
    */
   async createUser(
-    ctx: any,
-    data: { name: string; email: string; role: string },
-  ) {
-    const tenantId = this.getTenantId(ctx);
+  ctx: any,
+  data: { name: string; email: string; role: Role; password: string },
+) {
+  const tenantId = this.getTenantId(ctx);
 
-    const user = await this.prisma.user.create({
-      data: {
-        tenantId,
-        name: data.name,
-        email: data.email,
-        role: data.role,
+  // hash password
+  const passwordHash = await this.passwordService.hash(data.password);
+
+  const user = await this.prisma.user.create({
+    data: {
+      tenantId,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      passwordHash,
+      isActive: true,
+    },
+  });
+
+  this.audit
+    .log({
+      tenantId,
+      userId: ctx.userId,
+      action: 'USER_CREATED',
+      entity: 'user',
+      entityId: user.id,
+      metadata: {
+        email: user.email,
+        role: user.role,
       },
-    });
+    })
+    .catch((err) => console.error('Audit failed', err));
 
-    // 🔒 Audit must never break the main flow
-    this.audit
-      .log({
-        tenantId,
-        userId: ctx.userId,
-        action: 'USER_CREATED',
-        entity: 'user',
-        entityId: user.id,
-        metadata: {
-          email: user.email,
-          role: user.role,
-        },
-      })
-      .catch((err) => {
-        console.error('Audit failed', err);
-      });
-
-    return user;
-  }
+  return user;
+}
 
   /**
    * List all active (non-deleted) users in the tenant

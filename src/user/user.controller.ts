@@ -3,6 +3,8 @@ import { UserService } from './user.service';
 import { Ctx } from '../common/decorators/context.decorator';
 import { Permissions } from '../common/decorators/permissions.decorator';
 import { Permission } from '../common/auth/permissions';
+import { Role } from '@prisma/client';
+import { CreateUserDto } from './dto/create-user.dto';
 
 @Controller('users')
 export class UserController {
@@ -22,14 +24,9 @@ export class UserController {
 
   @Post()
   @Permissions(Permission.USER_CREATE)
-  create(
-    @Ctx() ctx: any,
-    @Body('name') name: string,
-    @Body('email') email: string,
-    @Body('role') role: string,
-  ) {
-    return this.userService.createUser(ctx, { name, email, role });
-  }
+  createUser(@Ctx() ctx: any, @Body() dto: CreateUserDto) {
+  return this.userService.createUser(ctx, dto);
+}
 
   @Permissions(Permission.USER_CREATE) // reuse for now
   @Post(':id/restore')
